@@ -31,9 +31,12 @@ https://currencydatafeed.com/api/v2/live-rates?token=YOUR_API_TOKEN
 ## 📦 Available SDKs
 
 - `/php/` – PHP Client
+- `/go/` – Go Client
 - `/java/` – Java Client
 - `/javascript/` – JavaScript Client (Node.js)
-- *(Add more languages as needed)*
+- `/kotlin/` – Kotlin Client
+- `/python/` – Python Client
+- `/swift5/` – Swift 5 Client
 
 ---
 
