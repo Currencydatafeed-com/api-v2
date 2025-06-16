@@ -1,0 +1,2401 @@
+openapi: 3.0.0
+info:
+  title: Currencydatafeed.com API V2
+  description: "> 📘 **Looking for V1 API documentation?**  \n> Visit: [https://currencydatafeed.com/documentation.php](https://currencydatafeed.com/documentation.php)\n\
+    \n\nA comprehensive data API to retrieve live and historical prices for currency\
+    \ pairs and cryptocurrencies, including technical analysis endpoints and on-chain\
+    \ metrics.\n\n## Authentication\n\nAll endpoints require an API token.\n\n**Recommended:**\
+    \ Send your API token as a Bearer token in the HTTP `Authorization` header:\n\n\
+    ```\nAuthorization: Bearer YOUR_API_TOKEN\n```\n\n**Example (cURL):**\n```shell\n\
+    curl -H \"Authorization: Bearer YOUR_API_TOKEN\" \\\n  \"https://currencydatafeed.com/api/v2/live-rates\"\
+    \n```\n\n**Alternative:** You may also send the token as a `token` query parameter,\
+    \ but this is less secure and not recommended:\n\n```\nhttps://currencydatafeed.com/api/v2/live-rates?token=YOUR_API_TOKEN\n\
+    ```\n\n> The API first checks the Authorization header, then the `token` parameter\
+    \ if no header is found.\n"
+  version: 2.0.1
+servers:
+- url: https://virtserver.swaggerhub.com/cdf-f41/cdf/2.0.1
+  description: SwaggerHub API Auto Mocking
+- url: https://currencydatafeed.com/api/v2
+security:
+- bearerAuth: []
+tags:
+- name: General
+  description: "Endpoints for API information, available symbols etc.."
+- name: Forex
+  description: "## Forex Endpoints\n\nEndpoints for retrieving live and historical\
+    \ forex data.  \nFeatures:\n- Live spot FX rates\n- Historical OHLC data\n- Intraday\n\
+    - Conversion\n- Technical Analysis\n- Source Currency Rates\n"
+- name: Crypto Currency
+  description: "## Crypto Endpoints\n\nEndpoints for retrieving live and historical\
+    \ cryptocurrency data.  \nFeatures:\n- Spot prices and market data for crypto\
+    \ pairs\n- Historical OHLC data\n- Technical analysis for crypto\n- On-chain Metrics\n\
+    - Live exchange pairs\n- Fear&Greed Index\n"
+paths:
+  /available-symbols:
+    get:
+      tags:
+      - General
+      summary: Get available symbols list
+      description: |
+        Returns a list of available symbols for forex, crypto, or crypto_extended.
+        Requires an active subscription with symbol list access.
+      operationId: getAvailableSymbols
+      parameters:
+      - name: section
+        in: query
+        description: "Section to list symbols from:  \n- **forex**: All available\
+          \ forex pairs  \n- **crypto**: All available crypto pairs  \n- **crypto_extended**:\
+          \ Extended crypto pairs\n"
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          enum:
+          - forex
+          - crypto
+          - crypto_extended
+      responses:
+        "200":
+          description: Successful response with symbols list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200"
+        "400":
+          description: Missing or invalid section parameter
+        "401":
+          description: "Invalid or missing authentication token, or access denied"
+        "403":
+          description: No access to symbol list (upgrade subscription)
+  /live-rates:
+    get:
+      tags:
+      - Forex
+      summary: Get live forex prices
+      description: |
+        Returns the latest live rates for all supported forex currency pairs.
+
+        You can request specific pairs by providing a comma-separated list of symbols in the `symbol` parameter, e.g. `EURUSD,GBPUSD,USDSEK`.
+      operationId: getLiveRates
+      parameters:
+      - name: symbol
+        in: query
+        description: |
+          Comma-separated list of currency pairs to filter the results (e.g. `EURUSD,GBPUSD,USDSEK`). If not provided, all pairs are returned.
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: "EURUSD,GBPUSD,USDSEK"
+      responses:
+        "200":
+          description: Successful response with live rates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_1"
+        "400":
+          description: Bad request (e.g. invalid pairs parameter)
+        "401":
+          description: Invalid or missing authentication token
+  /source:
+    get:
+      tags:
+      - Forex
+      summary: Get rates with other currencies using a custom base currency
+      description: |
+        Returns the latest exchange rates for one or more target currencies, using the specified base currency as the reference.
+        Provide the base (source) and one or more target currencies (comma-separated) in the query string.
+      operationId: getRatesBySource
+      parameters:
+      - name: source
+        in: query
+        description: |
+          The base currency to use for conversion (e.g., `SEK`).
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: SEK
+      - name: target
+        in: query
+        description: |
+          One or more target currencies to return rates for, separated by a comma (e.g., `TRY,GBP`).
+        required: true
+        style: form
+        explode: false
+        schema:
+          type: array
+          example: "TRY,GBP"
+          items:
+            type: string
+      responses:
+        "200":
+          description: Successful response with conversion rates from the specified
+            base currency to targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/inline_response_200_2"
+                x-content-type: application/json
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+  /convert:
+    get:
+      tags:
+      - Forex
+      summary: Convert an amount between two currencies
+      description: |
+        Converts a specified amount from one currency to another, returning the latest available rate and result.
+        Direct, reverse, or USD-intermediate conversion is used as needed. All parameters are required.
+      operationId: convertAmount
+      parameters:
+      - name: from
+        in: query
+        description: "The source currency code (e.g., `EUR`)."
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: EUR
+      - name: to
+        in: query
+        description: "The target currency code (e.g., `TRY`)."
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: TRY
+      - name: amount
+        in: query
+        description: The amount to convert.
+        required: true
+        style: form
+        explode: true
+        schema:
+          minimum: 0.000010
+          type: number
+          example: 100
+      responses:
+        "200":
+          description: Successful conversion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_3"
+              example:
+                success: true
+                data:
+                  from: EUR
+                  to: TRY
+                  amount: 100
+                  rate: 35.24921
+                  conversion_result: 3524.921
+                  date: 2025-06-13 09:50:00
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+  /performance:
+    get:
+      tags:
+      - Forex
+      summary: Get percentage changes for a symbol for different periods
+      description: |
+        Returns the percentage change in price for the given symbol over several time intervals (1 hour, 4 hours, 1 day, 7 days, 30 days, 90 days, 180 days, 270 days, 365 days, 720 days).
+        Requires authentication and an active subscription with gainers/losers access.
+      operationId: getPerformance
+      parameters:
+      - name: symbol
+        in: query
+        description: The symbol code to query (e.g. `EURUSD`).
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: EURUSD
+      responses:
+        "200":
+          description: Performance percentage changes for the symbol
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_4"
+              example:
+                success: true
+                data:
+                  symbol: EURUSD
+                  PercentageChange_1h: -0.12
+                  PercentageChange_4h: 0.05
+                  PercentageChange_1d: 0.31
+                  PercentageChange_7d: 1.1
+                  PercentageChange_30d: -2.1
+                  PercentageChange_90d: -1.85
+                  PercentageChange_180d: 4.17
+                  PercentageChange_270d: 5.12
+                  PercentageChange_365d: 8.77
+                  PercentageChange_720d: 16.39
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /history:
+    get:
+      tags:
+      - Forex
+      summary: Get historical OHLC data for a currency pair on a given date
+      description: |
+        Returns historical open, high, low, and close values for one or more currency pairs on a specific date.
+        If direct data is not available for a pair, the system attempts to reverse the pair.
+        Returns an error if the date is more than 4 years in the past.
+        Requires authentication and a subscription with historical access.
+      operationId: getHistoricalOHLC
+      parameters:
+      - name: symbol
+        in: query
+        description: "One or more currency pairs, separated by spaces.  \nExample:\
+          \ `EURUSD USDTRY`\n"
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: EURUSD
+      - name: date
+        in: query
+        description: The date to query in YYYY-MM-DD format.
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          format: date
+      responses:
+        "200":
+          description: Successful response with historical OHLC data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_5"
+              example:
+                status: true
+                data:
+                - currency: EURUSD
+                  open: 1.075
+                  high: 1.0788
+                  low: 1.0722
+                  close: 1.0764
+                  date: 2024-06-14 23:00:00
+                  type: original
+                - currency: USDTRY
+                  open: 32.15
+                  high: 32.35
+                  low: 32.07
+                  close: 32.212
+                  date: 2024-06-14 23:00:00
+                  type: original
+                - currency: JPYUSD
+                  error: No data is available
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: "No access, request limit reached, or date too old"
+  /timeframe:
+    get:
+      tags:
+      - Forex
+      summary: Get historical OHLC data for a currency pair within a date range
+      description: "Returns historical open, high, low, and close (OHLC) data for\
+        \ a currency pair over a specified date range.\nMaximum 8 years of data can\
+        \ be queried at once.  \nRequires authentication and a subscription with timeframe\
+        \ query access.\n"
+      operationId: getOHLCByTimeframe
+      parameters:
+      - name: currency
+        in: query
+        description: Currency pair symbol (e.g. `EURUSD`)
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: EURUSD
+      - name: from
+        in: query
+        description: "Start date (YYYY-MM-DD), must be older than `to`"
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        description: "End date (YYYY-MM-DD), must be newer than `from`"
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          format: date
+      responses:
+        "200":
+          description: Successful response with OHLC history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_6"
+              example:
+                status: true
+                currency: EURUSD
+                from: 2023-01-01T00:00:00.000Z
+                to: 2023-01-05T00:00:00.000Z
+                data:
+                - currency: EURUSD
+                  type: original
+                  history:
+                  - open: 1.05
+                    high: 1.08
+                    low: 1.04
+                    close: 1.07
+                    date: 2023-01-01 23:00:00
+                  - open: 1.07
+                    high: 1.09
+                    low: 1.06
+                    close: 1.08
+                    date: 2023-01-02 23:00:00
+                - currency: USDTRY
+                  type: reversed
+                  history:
+                  - open: 18.5
+                    high: 18.9
+                    low: 18.3
+                    close: 18.6
+                    date: 2023-01-01 23:00:00
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: "No access, request limit reached, or date range too wide"
+  /intraday:
+    get:
+      tags:
+      - Forex
+      summary: Get intraday (minute/hour) OHLC data for a symbol with flexible time
+        selection
+      description: |
+        Returns intraday open, high, low, and close (OHLC) data for a symbol, supporting multiple time selection modes:
+        - **last:** Most recent N records
+        - **hours:** Records for the last N hours
+        - **from/to:** Records between custom date ranges
+        The `interval` parameter is required (valid values: 1, 5, 15, 60 for minutes/hours).
+        You must specify **exactly one** of the following: `last`, `hours`, or both `from` and `to`.
+        Requires authentication and subscription with intraday/minute OHLC access.
+      operationId: getIntradayOHLC
+      parameters:
+      - name: symbol
+        in: query
+        description: The symbol/pair to query (e.g. `EURUSD`)
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: EURUSD
+      - name: interval
+        in: query
+        description: |
+          Data interval in minutes:
+          - 1 = 1 minute
+          - 5 = 5 minutes
+          - 15 = 15 minutes
+          - 60 = 1 hour
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: integer
+          example: 5
+          enum:
+          - 1
+          - 5
+          - 15
+          - 60
+      - name: last
+        in: query
+        description: Number of most recent records to return (exclusive with hours/from/to)
+        required: false
+        style: form
+        explode: true
+        schema:
+          minimum: 1
+          type: integer
+          example: 100
+      - name: hours
+        in: query
+        description: Records for the last N hours (exclusive with last/from/to)
+        required: false
+        style: form
+        explode: true
+        schema:
+          minimum: 1
+          type: integer
+          example: 24
+      - name: from
+        in: query
+        description: "Start date (inclusive, YYYY-MM-DD or YYYY-MM-DD HH:MM:SS), must\
+          \ be older than `to`"
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        description: "End date (exclusive, YYYY-MM-DD or YYYY-MM-DD HH:MM:SS), must\
+          \ be newer than `from`"
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+          format: date
+      responses:
+        "200":
+          description: Successful response with intraday OHLC data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_7"
+              example:
+                success: true
+                data:
+                  currency: EURUSD
+                  type: original
+                  data:
+                  - open: 1.076
+                    high: 1.0788
+                    low: 1.0752
+                    close: 1.0768
+                    date: 2024-07-05 12:00:00
+                  - open: 1.0768
+                    high: 1.0774
+                    low: 1.0756
+                    close: 1.0762
+                    date: 2024-07-05 12:05:00
+        "400":
+          description: "Invalid or missing parameters, or multiple period selection\
+            \ modes used"
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /levels:
+    get:
+      tags:
+      - Forex
+      summary: "Technical Analysis - Get Support, Resistence, Bollinger Bands for\
+        \ a symbol"
+      description: |
+        Returns pivot points (pivot, support/resistance levels) and Bollinger Bands for the latest data of the specified symbol.
+        Requires authentication and a subscription with technical analysis (TA) access.
+        If not enough historical data is available for Bollinger Bands (minimum 20 periods), the endpoint returns an error for that calculation.
+      operationId: getLevels
+      parameters:
+      - name: symbol
+        in: query
+        description: The symbol/pair to query (e.g. `EURUSD`)
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: EURUSD
+      responses:
+        "200":
+          description: Successful response with pivot and Bollinger levels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_8"
+              example:
+                success: true
+                data:
+                  symbol: EURUSD
+                  pivot: 1.0765
+                  resistance1: 1.0812
+                  support1: 1.0723
+                  resistance2: 1.087
+                  support2: 1.0685
+                  resistance3: 1.0907
+                  support3: 1.0659
+                  bollinger_upper: 1.0815
+                  bollinger_lower: 1.0712
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /ta:
+    get:
+      tags:
+      - Forex
+      summary: "Get technical analysis indicators for a symbol (Ema & Sma Levels,\
+        \ CCI, Williams%R, ADX and Stochastic Indicators)"
+      description: |
+        Returns a range of daily technical analysis indicators for the specified symbol (up to 720 days).
+        Includes MACD, RSI, moving averages, Stochastic, ADX, CCI, Williams %R, and more.
+        Requires authentication and a subscription with technical analysis (TA) access.
+      operationId: getTechnicalAnalysis
+      parameters:
+      - name: symbol
+        in: query
+        description: The symbol/pair to query (e.g. `EURUSD`)
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: EURUSD
+      - name: days
+        in: query
+        description: |
+          Number of days to return (default: 365, max: 720)
+        required: false
+        style: form
+        explode: true
+        schema:
+          maximum: 720
+          minimum: 1
+          type: integer
+          example: 180
+      responses:
+        "200":
+          description: Successful response with technical indicators
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_9"
+              example:
+                success: true
+                sembol: EURUSD
+                macd_data:
+                - date: 2024-07-01
+                  macd: 0.0115
+                  signal_line: 0.0098
+                - date: 2024-07-02
+                  macd: 0.012
+                  signal_line: 0.0105
+                rsi_data:
+                - date: 2024-07-01
+                  rsi: 55.2
+                  rsi_signal: neutral
+                - date: 2024-07-02
+                  rsi: 60.1
+                  rsi_signal: overbought
+                technical_data:
+                - date: 2024-07-01
+                  sma_10: 1.076
+                  sma_20: 1.0755
+                  sma_50: 1.0752
+                  sma_100: 1.0748
+                  sma_200: 1.073
+                  ema_12: 1.0761
+                  ema_26: 1.0753
+                  ema_50: 1.0744
+                  stochastic_k: 55.3
+                  stochastic_d: 53.2
+                  adx: 21.7
+                  cci: 11.8
+                  williams_r: -42.5
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-live:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get live data for one or more cryptocurrencies
+      description: |
+        Returns the latest price and daily metrics for one or more cryptocurrencies.
+        Requires authentication and a subscription with crypto access.
+      operationId: getCryptoLive
+      parameters:
+      - name: symbol
+        in: query
+        description: |
+          One or more cryptocurrency symbols, separated by commas (e.g. `BTC,ETH,XRP`)
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: "BTC,ETH,XRP"
+      responses:
+        "200":
+          description: Successful response with crypto live data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_10"
+              example:
+                success: true
+                data:
+                - symbol: BTC
+                  last: 61380.41
+                  daily_change_percentage: 1.25
+                  last_btc: 1
+                  low: 60000
+                  high: 62000
+                  updated: 2024-07-05 13:30:00
+                  source: genel
+                - symbol: ETH
+                  last: 3400.12
+                  daily_change_percentage: 2.08
+                  last_btc: 0.055
+                  low: 3200
+                  high: 3450
+                  updated: 2024-07-05 13:30:00
+                  source: genel
+                - symbol: XRP
+                  last: 0.52
+                  daily_change_percentage: 1.05
+                  last_btc: 8.5E-6
+                  low: 0.5
+                  high: 0.54
+                  updated: 2024-07-05 13:30:00
+                  source: genel
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-live-extended:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get extended live data for one or more crypto pairs from specific exchanges
+      description: |
+        Returns the latest extended data for one or more cryptocurrency pairs from specific exchanges or markets.
+        Requires authentication and a subscription with crypto access.
+
+        The `symbol` parameter accepts one or more pair-market combinations, separated by commas.
+        - Example: `BTCUSDT@binance,XRPUSDT@bybit`
+      operationId: getCryptoLiveExtended
+      parameters:
+      - name: symbol
+        in: query
+        description: "One or more cryptocurrency pairs (with market), separated by\
+          \ commas.  \nFormat: `PAIR@market`, e.g. `BTCUSDT@binance,XRPUSDT@bybit`\n"
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: "BTCUSDT@binance,XRPUSDT@bybit"
+      responses:
+        "200":
+          description: Successful response with extended crypto data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_11"
+              example:
+                success: true
+                data:
+                - symbol: BTCUSDT
+                  last: 61380.41
+                  low: 60000
+                  high: 62000
+                  previous_day: 60700
+                  daily_change_percentage: 1.25
+                  source: binance
+                  updated: 2024-07-05 13:30:00
+                - symbol: XRPUSDT
+                  last: 0.52
+                  low: 0.5
+                  high: 0.54
+                  previous_day: 0.51
+                  daily_change_percentage: 1.05
+                  source: bybit
+                  updated: 2024-07-05 13:30:00
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-live-exchange:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get live crypto data for all pairs from a specific exchange
+      description: "Returns the latest live data for all cryptocurrency pairs from\
+        \ a specified exchange (market).\nRequires authentication and an appropriate\
+        \ subscription with on-chain access.\n\n**The `exchange` parameter is required.**\
+        \  \nFor example: `binance`, `bybit`, etc.\n"
+      operationId: getCryptoLiveByExchange
+      parameters:
+      - name: exchange
+        in: query
+        description: |
+          The market or exchange to get all pairs from (e.g. `binance`, `bybit`, etc.).
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: binance
+      responses:
+        "200":
+          description: Successful response with all crypto pairs for a given exchange
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_12"
+              example:
+                success: true
+                data:
+                - symbol: BTCUSDT
+                  last: 61380.41
+                  low: 60000
+                  high: 62000
+                  previous_day: 60700
+                  daily_change_percentage: 1.25
+                  source: binance
+                  updated: 2024-07-05 13:30:00
+                - symbol: ETHUSDT
+                  last: 3400.1
+                  low: 3350
+                  high: 3450
+                  previous_day: 3380
+                  daily_change_percentage: 0.6
+                  source: binance
+                  updated: 2024-07-05 13:30:00
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-history:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get historical close prices for a cryptocurrency
+      description: |
+        Returns the daily closing price history for a single cryptocurrency symbol for up to 5 years (max 1825 days).
+        Requires authentication and a subscription with historical access.
+
+        The `symbol` parameter accepts a single cryptocurrency code (e.g., `XRP`, `BTC`, `ETH`).
+      operationId: getCryptoHistory
+      parameters:
+      - name: symbol
+        in: query
+        description: "The cryptocurrency symbol (e.g. XRP, BTC, ETH)."
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: XRP
+      - name: period
+        in: query
+        description: |
+          Number of daily data points to return (up to 1825; 5 years).
+        required: true
+        style: form
+        explode: true
+        schema:
+          maximum: 1825
+          minimum: 1
+          type: integer
+          example: 365
+      responses:
+        "200":
+          description: Historical daily close prices for the specified cryptocurrency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_13"
+              example:
+                success: true
+                data:
+                - date: 2024-06-01
+                  close: 0.5824
+                - date: 2024-05-31
+                  close: 0.576
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-history-1m:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get 1-minute historical close prices for a cryptocurrency (up to 48
+        hours)
+      description: |
+        Returns the 1-minute interval closing price history for a single cryptocurrency symbol for up to 48 hours.
+        Requires authentication and a subscription with historical access.
+
+        - `symbol` parameter accepts a single cryptocurrency code (e.g., `ETH`, `BTC`).
+        - `hours` parameter is required, integer, max 48.
+      operationId: getCryptoMinuteHistory
+      parameters:
+      - name: symbol
+        in: query
+        description: "The cryptocurrency symbol (e.g. ETH, BTC, XRP)."
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: ETH
+      - name: hours
+        in: query
+        description: |
+          Number of hours of minute-level historical data to return (up to 48 hours back).
+        required: true
+        style: form
+        explode: true
+        schema:
+          maximum: 48
+          minimum: 1
+          type: integer
+          example: 24
+      responses:
+        "200":
+          description: 1-minute interval close prices for the specified cryptocurrency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_14"
+              example:
+                success: true
+                data:
+                - date: 2024-06-13 12:44:00
+                  close: 3732.27
+                - date: 2024-06-13 12:43:00
+                  close: 3731.2
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-extended-history:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get extended historical close prices for a specific crypto pair on
+        an exchange
+      description: |
+        Returns the daily closing price history for a single cryptocurrency trading pair on a specific exchange (e.g. `LTCUSDT@binance`).
+        Requires authentication and a subscription with historical access.
+
+        - `symbol` parameter accepts a single value, formatted as `PAIR@exchange` (e.g. `BTCUSDT@binance`).
+        - `period` parameter is required, integer, maximum as supported (suggest up to 1825 for 5 years).
+      operationId: getCryptoExtendedHistory
+      parameters:
+      - name: symbol
+        in: query
+        description: |
+          Trading pair and exchange in the format `PAIR@exchange` (e.g. `LTCUSDT@binance`).
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: LTCUSDT@binance
+      - name: period
+        in: query
+        description: |
+          Number of daily records to return (e.g. 365 for last 1 year, 1825 for 5 years).
+        required: true
+        style: form
+        explode: true
+        schema:
+          maximum: 1825
+          minimum: 1
+          type: integer
+          example: 365
+      responses:
+        "200":
+          description: Daily close price history for the specified pair and exchange
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_15"
+              example:
+                success: true
+                data:
+                - date: 2024-06-13
+                  close: 87.56
+                - date: 2024-06-12
+                  close: 88.12
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-extended-history-1m:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get intraday (minute-level) price history for a specific crypto pair
+        on an exchange
+      description: "Returns minute-level price history (close prices and timestamps)\
+        \ for a single crypto trading pair on a specific exchange.  \nThe `symbol`\
+        \ parameter expects the format `PAIR@exchange` (e.g. `BTCUSDT@binance`).\n\
+        \n- Requires authentication and subscription with historical access.\n- `hours`\
+        \ parameter: Maximum 48 (last 48 hours).\n"
+      operationId: getCryptoExtendedMinuteHistory
+      parameters:
+      - name: symbol
+        in: query
+        description: |
+          Trading pair and exchange in the format `PAIR@exchange` (e.g. `BTCUSDT@binance`).
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: BTCUSDT@binance
+      - name: hours
+        in: query
+        description: |
+          Number of hours of minute-level data to return (max 48).
+        required: true
+        style: form
+        explode: true
+        schema:
+          maximum: 48
+          minimum: 1
+          type: integer
+          example: 24
+      responses:
+        "200":
+          description: Minute-level close price history for the given pair and exchange
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_16"
+              example:
+                success: true
+                data:
+                - date: 2024-06-13 11:05:00
+                  close: 70835.4
+                - date: 2024-06-13 11:04:00
+                  close: 70832.1
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-onchain:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get on-chain metrics for Bitcoin and crypto markets
+      description: "Returns daily on-chain indicators as time series for Bitcoin and\
+        \ major crypto assets.  \nThe `type` parameter selects the indicator to retrieve\
+        \ (e.g. whale flows, SOPR, Puell Multiple, MVRV, open interest, leverage,\
+        \ funding, active address ratio).\n\n**Available types:**  \n- whale  \n-\
+        \ sopr  \n- puell  \n- mvrv  \n- open_interest  \n- leverage  \n- funding\
+        \  \n- active_address\n\nRequires authentication and subscription with on-chain\
+        \ access.\n"
+      operationId: getCryptoOnchainMetrics
+      parameters:
+      - name: type
+        in: query
+        description: The type of on-chain metric to fetch
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+          example: whale
+          enum:
+          - whale
+          - sopr
+          - puell
+          - mvrv
+          - open_interest
+          - leverage
+          - funding
+          - active_address
+      responses:
+        "200":
+          description: On-chain indicator values (chronological order)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_17"
+              example:
+                success: true
+                data:
+                  whale:
+                  - updated: 2024-07-10
+                    value: 1.23
+                  - updated: 2024-07-09
+                    value: 1.22
+        "400":
+          description: Missing or invalid parameters
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-fg:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get Crypto Market Fear & Greed Index
+      description: |
+        Returns the daily crypto market Fear & Greed Index as a time series from 2021-04-10 to today.
+        Authentication and on-chain access subscription required.
+      operationId: getCryptoMarketFearGreedIndex
+      responses:
+        "200":
+          description: "Fear & Greed index values, latest first"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_18"
+              example:
+                success: true
+                data:
+                - updated: 2024-07-11
+                  value: 72
+                - updated: 2024-07-10
+                  value: 69
+        "400":
+          description: Missing parameter or error
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+  /crypto-performance:
+    get:
+      tags:
+      - Crypto Currency
+      summary: Get performance of a single cryptocurrency over various periods
+      description: "Returns the percentage change in price for a specified cryptocurrency\
+        \ (e.g., BTC, ETH) over several timeframes, including 1d, 7d, 15d, 30d, 90d,\
+        \ 180d, 270d, 365d, and 720d.  \nAuthentication and a subscription with crypto\
+        \ performance access are required.\n"
+      operationId: getCryptoPerformance
+      parameters:
+      - name: symbol
+        in: query
+        description: "Cryptocurrency symbol (e.g., BTC, ETH, XRP)"
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Percentage change in price for each timeframe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_19"
+              example:
+                success: true
+                data:
+                - "1d": -2.35
+                  "7d": 4.12
+                  "15d": 8.9
+                  "30d": 14.2
+                  "90d": -7.6
+                  "180d": 19.22
+                  "270d": 37.1
+                  "365d": 49
+                  "720d": 101.11
+        "400":
+          description: Missing parameter or error
+        "401":
+          description: Invalid or missing authentication token
+        "403":
+          description: No access or request limit reached
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    inline_response_200_11:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_11_data"
+        error_code:
+          type: string
+          description: Error code if not successful
+        message:
+          type: string
+          description: Informational or error message
+      example:
+        data:
+        - symbol: symbol
+          high: 1.4658129805029452
+          last: 0.8008281904610115
+          low: 6.027456183070403
+          daily_change_percentage: 5.637376656633329
+          previous_day: 5.962133916683182
+          source: source
+          updated: 2000-01-23T04:56:07.000+00:00
+        - symbol: symbol
+          high: 1.4658129805029452
+          last: 0.8008281904610115
+          low: 6.027456183070403
+          daily_change_percentage: 5.637376656633329
+          previous_day: 5.962133916683182
+          source: source
+          updated: 2000-01-23T04:56:07.000+00:00
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_10:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_10_data"
+        error_code:
+          type: string
+          description: Error code if not successful
+        message:
+          type: string
+          description: Informational or error message
+      example:
+        data:
+        - last_btc: 1.4658129805029452
+          symbol: symbol
+          high: 5.637376656633329
+          last: 0.8008281904610115
+          daily_change_percentage: 6.027456183070403
+          low: 5.962133916683182
+          source: source
+          updated: 2000-01-23T04:56:07.000+00:00
+        - last_btc: 1.4658129805029452
+          symbol: symbol
+          high: 5.637376656633329
+          last: 0.8008281904610115
+          daily_change_percentage: 6.027456183070403
+          low: 5.962133916683182
+          source: source
+          updated: 2000-01-23T04:56:07.000+00:00
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_13:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_13_data"
+        error_code:
+          type: string
+        message:
+          type: string
+      example:
+        data:
+        - date: 2000-01-23
+          close: 0.8008281904610115
+        - date: 2000-01-23
+          close: 0.8008281904610115
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_12:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_12_data"
+        error_code:
+          type: string
+          description: Error code if not successful
+        message:
+          type: string
+          description: Informational or error message
+      example:
+        data:
+        - symbol: symbol
+          high: 1.4658129805029452
+          last: 0.8008281904610115
+          low: 6.027456183070403
+          daily_change_percentage: 5.637376656633329
+          previous_day: 5.962133916683182
+          source: source
+          updated: 2000-01-23T04:56:07.000+00:00
+        - symbol: symbol
+          high: 1.4658129805029452
+          last: 0.8008281904610115
+          low: 6.027456183070403
+          daily_change_percentage: 5.637376656633329
+          previous_day: 5.962133916683182
+          source: source
+          updated: 2000-01-23T04:56:07.000+00:00
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_19_data:
+      type: object
+      properties:
+        "1d":
+          type: number
+          description: Percent change over 1 day
+          format: float
+        "7d":
+          type: number
+          description: Percent change over 7 days
+          format: float
+        "15d":
+          type: number
+          description: Percent change over 15 days
+          format: float
+        "30d":
+          type: number
+          description: Percent change over 30 days
+          format: float
+        "90d":
+          type: number
+          description: Percent change over 90 days
+          format: float
+        "180d":
+          type: number
+          description: Percent change over 180 days
+          format: float
+        "270d":
+          type: number
+          description: Percent change over 270 days
+          format: float
+        "365d":
+          type: number
+          description: Percent change over 365 days
+          format: float
+        "720d":
+          type: number
+          description: Percent change over 720 days
+          format: float
+      example:
+        "15d": 1.4658129
+        "1d": 0.8008282
+        "720d": 3.6160767
+        "30d": 5.962134
+        "365d": 9.301444
+        "180d": 2.302136
+        "7d": 6.0274563
+        "90d": 5.637377
+        "270d": 7.0614014
+    inline_response_200_16_data:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Timestamp (YYYY-MM-DD HH:MM:SS)
+          format: date-time
+        close:
+          type: number
+          description: Closing price at that minute
+      example:
+        date: 2000-01-23T04:56:07.000+00:00
+        close: 0.8008281904610115
+    inline_response_200_5_data:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: Queried or reversed pair symbol
+        open:
+          type: number
+          description: Open price (if available)
+        high:
+          type: number
+          description: High price (if available)
+        low:
+          type: number
+          description: Low price (if available)
+        close:
+          type: number
+          description: Close price (if available)
+        date:
+          type: string
+          description: Data timestamp
+          format: date-time
+        type:
+          type: string
+          description: Data type ("original" or "reversed")
+        error:
+          type: string
+          description: Error message if no data is available
+      example:
+        date: 2000-01-23T04:56:07.000+00:00
+        high: 6.027456183070403
+        low: 1.4658129805029452
+        currency: currency
+        type: type
+        error: error
+        close: 5.962133916683182
+        open: 0.8008281904610115
+    inline_response_200_19:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_19_data"
+        error_code:
+          type: string
+        message:
+          type: string
+      example:
+        data:
+        - "15d": 1.4658129
+          "1d": 0.8008282
+          "720d": 3.6160767
+          "30d": 5.962134
+          "365d": 9.301444
+          "180d": 2.302136
+          "7d": 6.0274563
+          "90d": 5.637377
+          "270d": 7.0614014
+        - "15d": 1.4658129
+          "1d": 0.8008282
+          "720d": 3.6160767
+          "30d": 5.962134
+          "365d": 9.301444
+          "180d": 2.302136
+          "7d": 6.0274563
+          "90d": 5.637377
+          "270d": 7.0614014
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_8_data:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: The queried symbol
+        pivot:
+          type: number
+          description: Pivot point
+        resistance1:
+          type: number
+          description: First resistance level
+        support1:
+          type: number
+          description: First support level
+        resistance2:
+          type: number
+          description: Second resistance level
+        support2:
+          type: number
+          description: Second support level
+        resistance3:
+          type: number
+          description: Third resistance level
+        support3:
+          type: number
+          description: Third support level
+        bollinger_upper:
+          type: number
+          description: Bollinger Bands upper value (if enough data)
+        bollinger_lower:
+          type: number
+          description: Bollinger Bands lower value (if enough data)
+      example:
+        bollinger_upper: 9.301444243932576
+        symbol: symbol
+        bollinger_lower: 3.616076749251911
+        pivot: 0.8008281904610115
+        resistance3: 2.3021358869347655
+        support3: 7.061401241503109
+        resistance2: 5.962133916683182
+        resistance1: 6.027456183070403
+        support2: 5.637376656633329
+        support1: 1.4658129805029452
+    inline_response_200_18:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_18_data"
+        error_code:
+          type: string
+        message:
+          type: string
+      example:
+        data:
+        - updated: 2000-01-23T04:56:07.000+00:00
+          value: 0.8008281904610115
+        - updated: 2000-01-23T04:56:07.000+00:00
+          value: 0.8008281904610115
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_15:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_15_data"
+        error_code:
+          type: string
+        message:
+          type: string
+      example:
+        data:
+        - date: 2000-01-23
+          close: 0.8008281904610115
+        - date: 2000-01-23
+          close: 0.8008281904610115
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_14:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_14_data"
+        error_code:
+          type: string
+        message:
+          type: string
+      example:
+        data:
+        - date: 2000-01-23T04:56:07.000+00:00
+          close: 0.8008281904610115
+        - date: 2000-01-23T04:56:07.000+00:00
+          close: 0.8008281904610115
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_17:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              properties:
+                updated:
+                  type: string
+                  description: Date of value
+                  format: date
+                value:
+                  type: number
+                  description: Metric value on that date
+              example:
+                updated: 2000-01-23
+                value: 0.8008281904610115
+        error_code:
+          type: string
+        message:
+          type: string
+      example:
+        data:
+          key:
+          - updated: 2000-01-23
+            value: 0.8008281904610115
+          - updated: 2000-01-23
+            value: 0.8008281904610115
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_9_technical_data:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        sma_10:
+          type: number
+        sma_20:
+          type: number
+        sma_50:
+          type: number
+        sma_100:
+          type: number
+        sma_200:
+          type: number
+        ema_12:
+          type: number
+        ema_26:
+          type: number
+        ema_50:
+          type: number
+        stochastic_k:
+          type: number
+          nullable: true
+        stochastic_d:
+          type: number
+          nullable: true
+        adx:
+          type: number
+          nullable: true
+        cci:
+          type: number
+          nullable: true
+        williams_r:
+          type: number
+          nullable: true
+      example:
+        date: 2000-01-23
+        ema_12: 3.616076749251911
+        ema_50: 4.145608029883936
+        cci: 1.4894159098541704
+        stochastic_d: 1.2315135367772556
+        ema_26: 2.027123023002322
+        williams_r: 6.84685269835264
+        stochastic_k: 7.386281948385884
+        adx: 1.0246457001441578
+        sma_200: 9.301444243932576
+        sma_100: 7.061401241503109
+        sma_50: 2.3021358869347655
+        sma_20: 5.637376656633329
+        sma_10: 5.962133916683182
+    inline_response_200_16:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_16_data"
+        error_code:
+          type: string
+        message:
+          type: string
+      example:
+        data:
+        - date: 2000-01-23T04:56:07.000+00:00
+          close: 0.8008281904610115
+        - date: 2000-01-23T04:56:07.000+00:00
+          close: 0.8008281904610115
+        success: true
+        error_code: error_code
+        message: message
+    inline_response_200_4_data:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Symbol queried
+        PercentageChange_1h:
+          type: number
+          description: Percentage change in the last 1 hour
+        PercentageChange_4h:
+          type: number
+          description: Percentage change in the last 4 hours
+        PercentageChange_1d:
+          type: number
+          description: Percentage change in the last 1 day
+        PercentageChange_7d:
+          type: number
+          description: Percentage change in the last 7 days
+        PercentageChange_30d:
+          type: number
+          description: Percentage change in the last 30 days
+        PercentageChange_90d:
+          type: number
+          description: Percentage change in the last 90 days
+        PercentageChange_180d:
+          type: number
+          description: Percentage change in the last 180 days
+        PercentageChange_270d:
+          type: number
+          description: Percentage change in the last 270 days
+        PercentageChange_365d:
+          type: number
+          description: Percentage change in the last 365 days
+        PercentageChange_720d:
+          type: number
+          description: Percentage change in the last 720 days
+      example:
+        symbol: symbol
+        PercentageChange_7d: 5.962133916683182
+        PercentageChange_30d: 5.637376656633329
+        PercentageChange_720d: 2.027123023002322
+        PercentageChange_180d: 7.061401241503109
+        PercentageChange_365d: 3.616076749251911
+        PercentageChange_4h: 6.027456183070403
+        PercentageChange_1d: 1.4658129805029452
+        PercentageChange_90d: 2.3021358869347655
+        PercentageChange_270d: 9.301444243932576
+        PercentageChange_1h: 0.8008281904610115
+    inline_response_200_14_data:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Timestamp (YYYY-MM-DD HH:MM:SS)
+          format: date-time
+        close:
+          type: number
+          description: Close price for the minute
+      example:
+        date: 2000-01-23T04:56:07.000+00:00
+        close: 0.8008281904610115
+    inline_response_200_1_data:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: "Pair symbol (e.g. \"EURUSD\", \"BTCUSD\")"
+        last:
+          type: number
+          description: Last trade price
+        change:
+          type: number
+          description: Absolute daily change
+        change_percent:
+          type: number
+          description: Daily change as a percent
+        weekly_change:
+          type: number
+          description: Absolute weekly change
+        weekly_change_percent:
+          type: number
+          description: Weekly change as a percent
+        monthly_change:
+          type: number
+          description: Absolute monthly change
+        monthly_change_percent:
+          type: number
+          description: Monthly change as a percent
+        yearly_change:
+          type: number
+          description: Absolute yearly change
+        yearly_change_percent:
+          type: number
+          description: Yearly change as a percent
+        ask:
+          type: number
+          description: Ask price
+        bid:
+          type: number
+          description: Bid price
+        daily_lowest:
+          type: number
+          description: Lowest price of the day
+        daily_highest:
+          type: number
+          description: Highest price of the day
+        open_today:
+          type: number
+          description: Open price of the day
+        date:
+          type: string
+          description: Time of the last update ("YYYY-MM-DD HH:mm:ss")
+      example:
+        yearly_change_percent: 3.616076749251911
+        date: date
+        symbol: symbol
+        last: 0.8008281904610115
+        change: 6.027456183070403
+        monthly_change_percent: 7.061401241503109
+        change_percent: 1.4658129805029452
+        weekly_change: 5.962133916683182
+        yearly_change: 9.301444243932576
+        weekly_change_percent: 5.637376656633329
+        open_today: 1.0246457001441578
+        ask: 2.027123023002322
+        monthly_change: 2.3021358869347655
+        bid: 4.145608029883936
+        daily_highest: 1.2315135367772556
+        daily_lowest: 7.386281948385884
+    inline_response_200_11_data:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Cryptocurrency pair (e.g. BTCUSDT)
+        last:
+          type: number
+          description: Last trade price
+        low:
+          type: number
+          description: 24h low price
+        high:
+          type: number
+          description: 24h high price
+        previous_day:
+          type: number
+          description: Previous day's closing price
+        daily_change_percentage:
+          type: number
+          description: 24h change percentage
+        source:
+          type: string
+          description: "Market or exchange name (e.g. binance, bybit)"
+        updated:
+          type: string
+          description: Last update time
+          format: date-time
+      example:
+        symbol: symbol
+        high: 1.4658129805029452
+        last: 0.8008281904610115
+        low: 6.027456183070403
+        daily_change_percentage: 5.637376656633329
+        previous_day: 5.962133916683182
+        source: source
+        updated: 2000-01-23T04:56:07.000+00:00
+    inline_response_200:
+      type: object
+      properties:
+        status:
+          type: boolean
+        symbols:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_symbols"
+        message:
+          type: string
+          description: Informational or error message
+      example:
+        message: message
+        symbols:
+        - symbol: symbol
+          name: name
+          updated: updated
+        - symbol: symbol
+          name: name
+          updated: updated
+        status: true
+    inline_response_200_18_data:
+      type: object
+      properties:
+        updated:
+          type: string
+          description: Date of the index value
+          format: date-time
+        value:
+          type: number
+          description: Fear & Greed index value (0–100)
+      example:
+        updated: 2000-01-23T04:56:07.000+00:00
+        value: 0.8008281904610115
+    inline_response_200_9_macd_data:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        macd:
+          type: number
+        signal_line:
+          type: number
+      example:
+        date: 2000-01-23
+        signal_line: 6.027456183070403
+        macd: 0.8008281904610115
+    inline_response_200_7_data:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: Queried symbol
+        type:
+          type: string
+          description: Data type ("original")
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_6_history"
+      example:
+        data:
+        - date: 2000-01-23T04:56:07.000+00:00
+          high: 6.027456183070403
+          low: 1.4658129805029452
+          close: 5.962133916683182
+          open: 0.8008281904610115
+        - date: 2000-01-23T04:56:07.000+00:00
+          high: 6.027456183070403
+          low: 1.4658129805029452
+          close: 5.962133916683182
+          open: 0.8008281904610115
+        currency: currency
+        type: type
+    inline_response_200_9:
+      type: object
+      properties:
+        success:
+          type: boolean
+        macd_data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_9_macd_data"
+        rsi_data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_9_rsi_data"
+        technical_data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_9_technical_data"
+        sembol:
+          type: string
+          description: The symbol queried
+        error:
+          type: string
+          description: "Error message, if any"
+      example:
+        success: true
+        macd_data:
+        - date: 2000-01-23
+          signal_line: 6.027456183070403
+          macd: 0.8008281904610115
+        - date: 2000-01-23
+          signal_line: 6.027456183070403
+          macd: 0.8008281904610115
+        rsi_data:
+        - date: 2000-01-23
+          rsi: 1.4658129805029452
+          rsi_signal: rsi_signal
+        - date: 2000-01-23
+          rsi: 1.4658129805029452
+          rsi_signal: rsi_signal
+        sembol: sembol
+        error: error
+        technical_data:
+        - date: 2000-01-23
+          ema_12: 3.616076749251911
+          ema_50: 4.145608029883936
+          cci: 1.4894159098541704
+          stochastic_d: 1.2315135367772556
+          ema_26: 2.027123023002322
+          williams_r: 6.84685269835264
+          stochastic_k: 7.386281948385884
+          adx: 1.0246457001441578
+          sma_200: 9.301444243932576
+          sma_100: 7.061401241503109
+          sma_50: 2.3021358869347655
+          sma_20: 5.637376656633329
+          sma_10: 5.962133916683182
+        - date: 2000-01-23
+          ema_12: 3.616076749251911
+          ema_50: 4.145608029883936
+          cci: 1.4894159098541704
+          stochastic_d: 1.2315135367772556
+          ema_26: 2.027123023002322
+          williams_r: 6.84685269835264
+          stochastic_k: 7.386281948385884
+          adx: 1.0246457001441578
+          sma_200: 9.301444243932576
+          sma_100: 7.061401241503109
+          sma_50: 2.3021358869347655
+          sma_20: 5.637376656633329
+          sma_10: 5.962133916683182
+    inline_response_200_5:
+      type: object
+      properties:
+        status:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_5_data"
+      example:
+        data:
+        - date: 2000-01-23T04:56:07.000+00:00
+          high: 6.027456183070403
+          low: 1.4658129805029452
+          currency: currency
+          type: type
+          error: error
+          close: 5.962133916683182
+          open: 0.8008281904610115
+        - date: 2000-01-23T04:56:07.000+00:00
+          high: 6.027456183070403
+          low: 1.4658129805029452
+          currency: currency
+          type: type
+          error: error
+          close: 5.962133916683182
+          open: 0.8008281904610115
+        status: true
+    inline_response_200_12_data:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Cryptocurrency pair (e.g. BTCUSDT)
+        last:
+          type: number
+          description: Last trade price
+        low:
+          type: number
+          description: 24h low price
+        high:
+          type: number
+          description: 24h high price
+        previous_day:
+          type: number
+          description: Previous day's closing price
+        daily_change_percentage:
+          type: number
+          description: 24h change percentage
+        source:
+          type: string
+          description: "Exchange/market name (e.g. binance, bybit)"
+        updated:
+          type: string
+          description: Last update time
+          format: date-time
+      example:
+        symbol: symbol
+        high: 1.4658129805029452
+        last: 0.8008281904610115
+        low: 6.027456183070403
+        daily_change_percentage: 5.637376656633329
+        previous_day: 5.962133916683182
+        source: source
+        updated: 2000-01-23T04:56:07.000+00:00
+    inline_response_200_6:
+      type: object
+      properties:
+        status:
+          type: boolean
+        currency:
+          type: string
+          description: The queried currency pair
+        from:
+          type: string
+          description: Start date of the query
+          format: date
+        to:
+          type: string
+          description: End date of the query
+          format: date
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_6_data"
+      example:
+        data:
+        - currency: currency
+          history:
+          - date: 2000-01-23T04:56:07.000+00:00
+            high: 6.027456183070403
+            low: 1.4658129805029452
+            close: 5.962133916683182
+            open: 0.8008281904610115
+          - date: 2000-01-23T04:56:07.000+00:00
+            high: 6.027456183070403
+            low: 1.4658129805029452
+            close: 5.962133916683182
+            open: 0.8008281904610115
+          type: type
+          error: error
+        - currency: currency
+          history:
+          - date: 2000-01-23T04:56:07.000+00:00
+            high: 6.027456183070403
+            low: 1.4658129805029452
+            close: 5.962133916683182
+            open: 0.8008281904610115
+          - date: 2000-01-23T04:56:07.000+00:00
+            high: 6.027456183070403
+            low: 1.4658129805029452
+            close: 5.962133916683182
+            open: 0.8008281904610115
+          type: type
+          error: error
+        currency: currency
+        from: 2000-01-23
+        to: 2000-01-23
+        status: true
+    inline_response_200_15_data:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Date (YYYY-MM-DD)
+          format: date
+        close:
+          type: number
+          description: Closing price for the day
+      example:
+        date: 2000-01-23
+        close: 0.8008281904610115
+    inline_response_200_7:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/inline_response_200_7_data"
+        error:
+          type: string
+          description: "Error message, if any"
+      example:
+        data:
+          data:
+          - date: 2000-01-23T04:56:07.000+00:00
+            high: 6.027456183070403
+            low: 1.4658129805029452
+            close: 5.962133916683182
+            open: 0.8008281904610115
+          - date: 2000-01-23T04:56:07.000+00:00
+            high: 6.027456183070403
+            low: 1.4658129805029452
+            close: 5.962133916683182
+            open: 0.8008281904610115
+          currency: currency
+          type: type
+        success: true
+        error: error
+    inline_response_200_8:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/inline_response_200_8_data"
+        error:
+          type: string
+          description: Error message if calculation is not possible
+      example:
+        data:
+          bollinger_upper: 9.301444243932576
+          symbol: symbol
+          bollinger_lower: 3.616076749251911
+          pivot: 0.8008281904610115
+          resistance3: 2.3021358869347655
+          support3: 7.061401241503109
+          resistance2: 5.962133916683182
+          resistance1: 6.027456183070403
+          support2: 5.637376656633329
+          support1: 1.4658129805029452
+        success: true
+        error: error
+    inline_response_200_6_history:
+      type: object
+      properties:
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        date:
+          type: string
+          format: date-time
+      example:
+        date: 2000-01-23T04:56:07.000+00:00
+        high: 6.027456183070403
+        low: 1.4658129805029452
+        close: 5.962133916683182
+        open: 0.8008281904610115
+    inline_response_200_9_rsi_data:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        rsi:
+          type: number
+        rsi_signal:
+          type: string
+          description: "One of \"oversold\", \"overbought\", \"neutral\""
+      example:
+        date: 2000-01-23
+        rsi: 1.4658129805029452
+        rsi_signal: rsi_signal
+    inline_response_200_6_data:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: Queried or reversed pair symbol
+        type:
+          type: string
+          description: Data type ("original" or "reversed")
+        history:
+          type: array
+          description: Array of OHLC objects for the range
+          items:
+            $ref: "#/components/schemas/inline_response_200_6_history"
+        error:
+          type: string
+          description: Error message if no data is available
+      example:
+        currency: currency
+        history:
+        - date: 2000-01-23T04:56:07.000+00:00
+          high: 6.027456183070403
+          low: 1.4658129805029452
+          close: 5.962133916683182
+          open: 0.8008281904610115
+        - date: 2000-01-23T04:56:07.000+00:00
+          high: 6.027456183070403
+          low: 1.4658129805029452
+          close: 5.962133916683182
+          open: 0.8008281904610115
+        type: type
+        error: error
+    inline_response_200_3_data:
+      type: object
+      properties:
+        from:
+          type: string
+          description: Source currency code
+        to:
+          type: string
+          description: Target currency code
+        amount:
+          type: number
+          description: Amount to convert
+        rate:
+          type: number
+          description: Conversion rate applied
+        conversion_result:
+          type: number
+          description: Result of the conversion (amount * rate)
+        date:
+          type: string
+          description: Rate date/time used for conversion
+          format: date-time
+        error:
+          type: string
+          description: Error message (present only if no data is available)
+      example:
+        conversion_result: 1.4658129805029452
+        date: 2000-01-23T04:56:07.000+00:00
+        amount: 0.8008281904610115
+        rate: 6.027456183070403
+        from: from
+        to: to
+        error: error
+    inline_response_200_1:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/inline_response_200_1_data"
+      example:
+        data:
+        - yearly_change_percent: 3.616076749251911
+          date: date
+          symbol: symbol
+          last: 0.8008281904610115
+          change: 6.027456183070403
+          monthly_change_percent: 7.061401241503109
+          change_percent: 1.4658129805029452
+          weekly_change: 5.962133916683182
+          yearly_change: 9.301444243932576
+          weekly_change_percent: 5.637376656633329
+          open_today: 1.0246457001441578
+          ask: 2.027123023002322
+          monthly_change: 2.3021358869347655
+          bid: 4.145608029883936
+          daily_highest: 1.2315135367772556
+          daily_lowest: 7.386281948385884
+        - yearly_change_percent: 3.616076749251911
+          date: date
+          symbol: symbol
+          last: 0.8008281904610115
+          change: 6.027456183070403
+          monthly_change_percent: 7.061401241503109
+          change_percent: 1.4658129805029452
+          weekly_change: 5.962133916683182
+          yearly_change: 9.301444243932576
+          weekly_change_percent: 5.637376656633329
+          open_today: 1.0246457001441578
+          ask: 2.027123023002322
+          monthly_change: 2.3021358869347655
+          bid: 4.145608029883936
+          daily_highest: 1.2315135367772556
+          daily_lowest: 7.386281948385884
+        success: true
+    inline_response_200_10_data:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: "Cryptocurrency symbol (e.g. BTC, ETH)"
+        last:
+          type: number
+          description: Last trade price in USD
+        daily_change_percentage:
+          type: number
+          description: 24h change percentage
+        last_btc:
+          type: number
+          description: "Price in BTC, if available"
+        low:
+          type: number
+          description: 24h low price
+        high:
+          type: number
+          description: 24h high price
+        updated:
+          type: string
+          description: Time of the last update
+          format: date-time
+        source:
+          type: string
+          description: Source table
+      example:
+        last_btc: 1.4658129805029452
+        symbol: symbol
+        high: 5.637376656633329
+        last: 0.8008281904610115
+        daily_change_percentage: 6.027456183070403
+        low: 5.962133916683182
+        source: source
+        updated: 2000-01-23T04:56:07.000+00:00
+    inline_response_200_2:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: "The target currency code (e.g., `USD`)"
+        last:
+          type: string
+          description: The latest conversion rate as a string
+        date:
+          type: string
+          description: The timestamp of the last rate update
+          format: date-time
+      example:
+        date: 2000-01-23T04:56:07.000+00:00
+        last: last
+        currency: currency
+    inline_response_200_symbols:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Symbol code (e.g. "EURUSD" or "BTCUSDT")
+        name:
+          type: string
+          description: Name/description of the symbol or pair
+        updated:
+          type: string
+          description: Last updated datetime or timestamp
+      example:
+        symbol: symbol
+        name: name
+        updated: updated
+    inline_response_200_3:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/inline_response_200_3_data"
+      example:
+        data:
+          conversion_result: 1.4658129805029452
+          date: 2000-01-23T04:56:07.000+00:00
+          amount: 0.8008281904610115
+          rate: 6.027456183070403
+          from: from
+          to: to
+          error: error
+        success: true
+    inline_response_200_4:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/inline_response_200_4_data"
+      example:
+        data:
+          symbol: symbol
+          PercentageChange_7d: 5.962133916683182
+          PercentageChange_30d: 5.637376656633329
+          PercentageChange_720d: 2.027123023002322
+          PercentageChange_180d: 7.061401241503109
+          PercentageChange_365d: 3.616076749251911
+          PercentageChange_4h: 6.027456183070403
+          PercentageChange_1d: 1.4658129805029452
+          PercentageChange_90d: 2.3021358869347655
+          PercentageChange_270d: 9.301444243932576
+          PercentageChange_1h: 0.8008281904610115
+        success: true
+    inline_response_200_13_data:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Date (YYYY-MM-DD)
+          format: date
+        close:
+          type: number
+          description: Close price for the day
+      example:
+        date: 2000-01-23
+        close: 0.8008281904610115
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
